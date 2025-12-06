@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Zap, Coins } from "lucide-react";
+import LightPillar from "@/components/LightPillar";
 
 export default function LandingPage() {
     return (
@@ -13,10 +14,18 @@ export default function LandingPage() {
                 {/* Background */}
                 <div className="absolute inset-0 -z-10">
                     <div className="absolute inset-0 bg-black/70 z-10" />
-                    <img
-                        src="https://images.unsplash.com/photo-1535868463750-c78d9543614f?q=80&w=2076&auto=format&fit=crop"
-                        alt="Cyberpunk City"
-                        className="w-full h-full object-cover"
+                    <LightPillar
+                        topColor="#4DA2FF"
+                        bottomColor="#ba008f"
+                        intensity={1.0}
+                        rotationSpeed={0.3}
+                        glowAmount={0.005}
+                        pillarWidth={3.0}
+                        pillarHeight={0.4}
+                        noiseIntensity={0.5}
+                        pillarRotation={0}
+                        interactive={false}
+                        mixBlendMode="normal"
                     />
                 </div>
 

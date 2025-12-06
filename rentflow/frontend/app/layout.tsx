@@ -11,6 +11,9 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "RentFlow - Collateral-Free NFT Rentals",
   description: "Rent GameFi items without collateral on Sui Network",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({

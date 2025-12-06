@@ -11,6 +11,7 @@ import { useRentFlow } from "@/hooks/useRentFlow";
 import { useListings } from "@/hooks/useListings";
 import { useCurrentAccount, useSuiClientQuery } from "@mysten/dapp-kit";
 import { PACKAGE_ID, MARKET_MODULE } from "@/utils/config";
+import { parseMoveString } from "@/utils/format";
 import { useState } from "react";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Wallet, Key, DollarSign, ArrowUpRight } from "lucide-react";
@@ -138,20 +139,24 @@ export default function DashboardPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {ownedObjects?.data.map((obj: any) => {
                                 const content = obj.data?.content?.fields;
+                                const name = parseMoveString(content?.name) || "Unknown Item";
+                                const url = parseMoveString(content?.url);
+                                const image = url.length > 0 ? url : "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop";
+
                                 return (
                                     <GradientCard key={obj.data?.objectId} className="h-full flex flex-col">
                                         <div className="relative h-48 w-full mb-4 rounded-lg overflow-hidden bg-muted">
                                             <Image
-                                                src={(typeof content?.url === "string" && content.url.length > 0) ? content.url : "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop"}
-                                                alt={content?.name || "Item"}
+                                                src={image}
+                                                alt={name}
                                                 fill
                                                 className="object-cover"
                                             />
                                         </div>
                                         <CardHeader className="p-0 mb-4">
-                                            <CardTitle className="text-xl">{content?.name || "Unknown Item"}</CardTitle>
+                                            <CardTitle className="text-xl">{name}</CardTitle>
                                             <CardDescription className="line-clamp-2 mt-2">
-                                                {content?.description || "No description"}
+                                                {parseMoveString(content?.description) || "No description"}
                                             </CardDescription>
                                         </CardHeader>
                                         <CardFooter className="p-0 pt-4 mt-auto">
