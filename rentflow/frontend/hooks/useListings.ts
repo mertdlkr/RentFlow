@@ -54,6 +54,9 @@ export function useListings() {
             owner: listing.owner,
             // Balance is directly the value based on logs
             balance: typeof listing.balance === 'object' ? (listing.balance?.fields?.value || listing.balance?.value || 0) : listing.balance,
+            // Mock fields for UI demo
+            game: ['Star Atlas', 'Axie Infinity', 'SuiWorld', 'CyberRaiders'][parseInt(listing.id.id.slice(-1), 16) % 4],
+            category: ['Weapons', 'Skins', 'Land', 'Characters'][parseInt(listing.id.id.slice(-2, -1) || "0", 16) % 4],
         };
     }).filter(Boolean) || [];
 
