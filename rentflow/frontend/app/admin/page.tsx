@@ -154,6 +154,9 @@ export default function AdminPage() {
                                     } else if (type === "ItemWithdrawn") {
                                         sender = data.owner;
                                         details = "Item withdrawn from market";
+                                    } else if (type === "EarningsClaimed") {
+                                        sender = data.owner;
+                                        details = `Claimed: ${Number(data.amount) / 1_000_000_000} SUI`;
                                     }
 
                                     return (
