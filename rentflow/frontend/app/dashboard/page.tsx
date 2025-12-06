@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function DashboardPage() {
-    const { listItem, mintDummyNft, withdrawItem, terminateRental, account } = useRentFlow();
+    const { listItem, mintDummyNft, withdrawItem, terminateRental, claimEarnings, account } = useRentFlow();
     const { listings, isLoading: isLoadingListings, refetch: refetchListings } = useListings();
     const [price, setPrice] = useState("");
     const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -70,12 +70,48 @@ export default function DashboardPage() {
         }
     );
 
-    // 3. Filter My Listings
-    const myListings = listings.filter((l: any) => l.owner === account?.address);
+    // 3. Filter My Listings (Case Insensitive)
+    const myListings = listings.filter((l: any) => {
+        const isMatch = l.owner.toLowerCase() === account?.address?.toLowerCase();
+        // console.log(`Listing ${l.id} Owner: ${l.owner}, My Address: ${account?.address}, Match: ${isMatch}`);
+        return isMatch;
+    });
 
     // 4. Calculate Total Earnings
-    const totalEarnings = myListings.reduce((acc: number, curr: any) => acc + (Number(curr.balance) || 0), 0);
-    const formattedEarnings = (totalEarnings / 1_000_000_000).toFixed(2);
+    const totalEarnings = myListings.reduce((acc: number, curr: any) => {
+        const val = Number(curr.balance) || 0;
+        // console.log(`Listing ${curr.id} Balance: ${curr.balance} -> ${val}`);
+        return acc + val;
+    }, 0);
+
+    // console.log("Total Earnings:", totalEarnings);
+
+    const formattedEarnings = (totalEarnings / 1_000_000_000).toFixed(3);
+
+    const handleClaimEarnings = () => {
+        // Claim from all listings with balance > 0
+        const listingsWithBalance = myListings.filter((l: any) => Number(l.balance) > 0);
+        if (listingsWithBalance.length === 0) {
+            alert("No earnings to claim.");
+            return;
+        }
+
+        // For simplicity, just claim from the first one or loop? 
+        // Move calls are 1 by 1 usually unless batched.
+        // Let's just claim from the first one for now, or better, make the user claim per listing?
+        // The UI shows "Total Earnings". A "Claim All" would be nice but requires PTB.
+        // Let's just claim the first one found for now to demonstrate.
+        // Ideally we should have a "Claim" button on each listing card.
+
+        // Actually, let's just claim the first one for this hackathon scope if multiple exist.
+        const target = listingsWithBalance[0];
+        claimEarnings(target.id, () => {
+            setTimeout(() => {
+                refetchListings();
+                refetchWallet();
+            }, 1000);
+        });
+    };
 
     const handleList = () => {
         if (!account || !selectedItem) return;
@@ -83,14 +119,15 @@ export default function DashboardPage() {
             alert("Please enter a price");
             return;
         }
-        listItem(selectedItem.data.objectId, Number(price) * 1_000_000_000);
+        listItem(selectedItem.data.objectId, Number(price) * 1_000_000_000, () => {
+            setTimeout(() => {
+                refetchWallet();
+                refetchListings();
+            }, 1000);
+        });
         setSelectedItem(null);
         setPrice("");
         setIsDialogOpen(false); // Close dialog
-        setTimeout(() => {
-            refetchWallet();
-            refetchListings();
-        }, 2000);
     };
 
     const handleMint = () => {
@@ -98,24 +135,34 @@ export default function DashboardPage() {
             alert("Please connect your wallet first");
             return;
         }
-        mintDummyNft("Void Slayer", "A legendary sword forged in the void.", "https://images.unsplash.com/photo-1589254065878-42c9da997008?q=80&w=2000&auto=format&fit=crop");
-        setTimeout(() => { refetchWallet(); }, 2000);
+        mintDummyNft(
+            "Void Slayer",
+            "A legendary sword forged in the void.",
+            "https://images.unsplash.com/photo-1589254065878-42c9da997008?q=80&w=2000&auto=format&fit=crop",
+            () => {
+                setTimeout(() => {
+                    refetchWallet();
+                }, 1000);
+            }
+        );
     };
 
     const handleWithdraw = (listingId: string) => {
-        withdrawItem(listingId);
-        setTimeout(() => {
-            refetchWallet();
-            refetchListings();
-        }, 2000);
+        withdrawItem(listingId, () => {
+            setTimeout(() => {
+                refetchWallet();
+                refetchListings();
+            }, 1000);
+        });
     };
 
     const handleTerminate = (rentPassId: string, listingId: string) => {
-        terminateRental(rentPassId, listingId);
-        setTimeout(() => {
-            refetchRentals();
-            refetchListings();
-        }, 2000);
+        terminateRental(rentPassId, listingId, () => {
+            setTimeout(() => {
+                refetchRentals();
+                refetchListings();
+            }, 1000);
+        });
     };
 
     return (
@@ -140,6 +187,9 @@ export default function DashboardPage() {
                             <p className="text-sm text-muted-foreground">Total Earnings</p>
                             <p className="text-2xl font-bold">{formattedEarnings} SUI</p>
                         </div>
+                        <Button size="sm" onClick={handleClaimEarnings} disabled={totalEarnings === 0}>
+                            Claim
+                        </Button>
                     </div>
                     <Button onClick={handleMint} variant="outline" className="h-auto py-4 px-6 border-primary/50 hover:bg-primary/10">
                         Mint Test NFT

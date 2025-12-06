@@ -18,9 +18,12 @@ export default function MarketplacePage() {
 
   const handleRent = () => {
     if (!account || !selectedListing) return;
-    rentItem(selectedListing.id, Number(selectedListing.price), Number(rentDays));
+    rentItem(selectedListing.id, Number(selectedListing.price), Number(rentDays), () => {
+      setTimeout(() => {
+        refetch();
+      }, 1000);
+    });
     setSelectedListing(null);
-    setTimeout(() => { refetch(); }, 2000);
   };
 
   if (isLoading) {

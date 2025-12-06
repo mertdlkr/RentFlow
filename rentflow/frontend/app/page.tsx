@@ -17,13 +17,13 @@ export default function LandingPage() {
                     <LightPillar
                         topColor="#4DA2FF"
                         bottomColor="#ba008f"
-                        intensity={1.0}
-                        rotationSpeed={0.3}
-                        glowAmount={0.005}
+                        intensity={1.8}
+                        rotationSpeed={1.0}
+                        glowAmount={0.003}
                         pillarWidth={3.0}
-                        pillarHeight={0.4}
-                        noiseIntensity={0.5}
-                        pillarRotation={0}
+                        pillarHeight={0.8}
+                        noiseIntensity={0.4}
+                        pillarRotation={62}
                         interactive={false}
                         mixBlendMode="normal"
                     />

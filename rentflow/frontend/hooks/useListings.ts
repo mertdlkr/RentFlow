@@ -52,7 +52,8 @@ export function useListings() {
             isRented: Number(listing.rented_until) > Date.now(),
             listingObjectId: listing.id.id,
             owner: listing.owner,
-            balance: listing.balance?.value || 0, // Extract balance
+            // Balance is directly the value based on logs
+            balance: typeof listing.balance === 'object' ? (listing.balance?.fields?.value || listing.balance?.value || 0) : listing.balance,
         };
     }).filter(Boolean) || [];
 

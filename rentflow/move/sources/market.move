@@ -45,6 +45,12 @@ module rentflow::market {
         owner: address,
     }
 
+    struct EarningsClaimed has copy, drop {
+        listing_id: ID,
+        owner: address,
+        amount: u64,
+    }
+
     /// A simple dummy NFT for testing
     struct GameItem has key, store {
         id: UID,
@@ -214,6 +220,7 @@ module rentflow::market {
         // Percentage * 100 for integer arithmetic
         let percentage = (elapsed * 100) / total_duration;
 
+        // "If more than 50% time remains (elapsed < 50%), refund 50% to user"
         let refund_percentage = if (percentage < 50) {
             50
         } else if (percentage < 75) {
@@ -224,15 +231,12 @@ module rentflow::market {
             0
         };
 
-        let mut refund_amount = 0;
+        let refund_amount = 0;
 
         if (refund_percentage > 0) {
             let total_balance = balance::value(&listing.balance);
-            // We can't easily track exactly which payment corresponds to this rental if multiple happened (though listing logic implies one at a time).
-            // Assuming balance holds the rent for this session.
-            // But wait, `withdraw_item` empties balance. So balance IS the rent.
-            
             refund_amount = (total_balance * refund_percentage) / 100;
+            
             if (refund_amount > 0) {
                 let refund = coin::take(&mut listing.balance, refund_amount, ctx);
                 transfer::public_transfer(refund, tx_context::sender(ctx));
@@ -245,8 +249,33 @@ module rentflow::market {
             refund: refund_amount,
         });
 
-        // Reset rented_until so it can be rented again or withdrawn
-        listing.rented_until = current_time;
+        // Reset rented_until to 0 to immediately make it available
+        listing.rented_until = 0;
+    }
+
+    /// Claim earnings without withdrawing the item
+    public fun claim_earnings<T: key + store>(
+        marketplace: &mut Marketplace,
+        listing_id: ID,
+        ctx: &mut TxContext
+    ) {
+        assert!(dof::exists_(&marketplace.id, listing_id), EListingNotFound);
+        let listing = dof::borrow_mut<ID, Listing<T>>(&mut marketplace.id, listing_id);
+
+        // Check owner
+        assert!(tx_context::sender(ctx) == listing.owner, ENotOwner);
+
+        let amount = balance::value(&listing.balance);
+        if (amount > 0) {
+            let earnings = coin::take(&mut listing.balance, amount, ctx);
+            transfer::public_transfer(earnings, listing.owner);
+            
+            event::emit(EarningsClaimed {
+                listing_id,
+                owner: tx_context::sender(ctx),
+                amount,
+            });
+        };
     }
 
     /// Withdraw the item (only owner, only if not rented)

@@ -7,9 +7,9 @@ import { PACKAGE_ID, RENTAL_STORE_ID, MARKET_MODULE } from "../utils/config";
 export function useRentFlow() {
     const client = useSuiClient();
     const account = useCurrentAccount();
-    const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+    const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
-    const mintDummyNft = (name: string, description: string, url: string) => {
+    const mintDummyNft = async (name: string, description: string, url: string, onSuccess?: () => void) => {
         if (!PACKAGE_ID) {
             toast.error("Please update PACKAGE_ID in utils/config.ts");
             return;
@@ -25,22 +25,17 @@ export function useRentFlow() {
             ],
         });
 
-        signAndExecute(
-            { transaction: tx },
-            {
-                onSuccess: (result) => {
-                    console.log("Minted successfully:", result);
-                    toast.success("NFT Minted Successfully!");
-                },
-                onError: (error) => {
-                    console.error("Mint failed:", error);
-                    toast.error("Failed to mint NFT: " + error.message);
-                },
-            }
-        );
+        try {
+            await signAndExecute({ transaction: tx });
+            toast.success("NFT Minted Successfully!");
+            if (onSuccess) onSuccess();
+        } catch (error: any) {
+            console.error("Mint failed:", error);
+            toast.error("Failed to mint NFT: " + error.message);
+        }
     };
 
-    const listItem = (itemId: string, pricePerDay: number) => {
+    const listItem = async (itemId: string, pricePerDay: number, onSuccess?: () => void) => {
         if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
         const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
@@ -48,30 +43,24 @@ export function useRentFlow() {
         tx.moveCall({
             target: `${PACKAGE_ID}::${MARKET_MODULE}::list_item`,
             arguments: [
-                tx.object(RENTAL_STORE_ID), // Marketplace Object
+                tx.object(RENTAL_STORE_ID),
                 tx.object(itemId),
                 tx.pure.u64(pricePerDay),
             ],
             typeArguments: [itemType],
         });
 
-        signAndExecute(
-            { transaction: tx },
-            {
-                onSuccess: (result: any) => {
-                    console.log("Listed successfully:", result);
-                    toast.success("Item Listed for Rent!");
-                    // No need for localStorage hack anymore!
-                },
-                onError: (error) => {
-                    console.error("List failed:", error);
-                    toast.error("Failed to list item: " + error.message);
-                },
-            }
-        );
+        try {
+            await signAndExecute({ transaction: tx });
+            toast.success("Item Listed for Rent!");
+            if (onSuccess) onSuccess();
+        } catch (error: any) {
+            console.error("List failed:", error);
+            toast.error("Failed to list item: " + error.message);
+        }
     };
 
-    const rentItem = (listingId: string, pricePerDay: number, days: number) => {
+    const rentItem = async (listingId: string, pricePerDay: number, days: number, onSuccess?: () => void) => {
         if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
         const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
@@ -81,35 +70,26 @@ export function useRentFlow() {
         tx.moveCall({
             target: `${PACKAGE_ID}::${MARKET_MODULE}::rent_item`,
             arguments: [
-                tx.object(RENTAL_STORE_ID), // Marketplace Object
-                tx.pure.id(listingId), // Listing ID (Key) - Note: pure.id or pure.address? ID is address-like.
-                // Actually, Move expects `ID`. In PTB, we can pass the ID string as pure?
-                // Or tx.pure(bcs.vector(bcs.u8()).serialize(listingId))?
-                // `tx.pure.id` is not standard. `tx.pure.address` works for ID usually.
-                // Let's try `tx.pure.address(listingId)`.
+                tx.object(RENTAL_STORE_ID),
+                tx.pure.address(listingId),
                 coin,
                 tx.pure.u64(days),
-                tx.object("0x6"), // Clock object
+                tx.object("0x6"),
             ],
             typeArguments: [itemType],
         });
 
-        signAndExecute(
-            { transaction: tx },
-            {
-                onSuccess: (result) => {
-                    console.log("Rented successfully:", result);
-                    toast.success("Item Rented Successfully!");
-                },
-                onError: (error) => {
-                    console.error("Rent failed:", error);
-                    toast.error("Failed to rent item: " + error.message);
-                },
-            }
-        );
+        try {
+            await signAndExecute({ transaction: tx });
+            toast.success("Item Rented Successfully!");
+            if (onSuccess) onSuccess();
+        } catch (error: any) {
+            console.error("Rent failed:", error);
+            toast.error("Failed to rent item: " + error.message);
+        }
     };
 
-    const withdrawItem = (listingId: string) => {
+    const withdrawItem = async (listingId: string, onSuccess?: () => void) => {
         if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
         const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
@@ -117,29 +97,24 @@ export function useRentFlow() {
         tx.moveCall({
             target: `${PACKAGE_ID}::${MARKET_MODULE}::withdraw_item`,
             arguments: [
-                tx.object(RENTAL_STORE_ID), // Marketplace Object
-                tx.pure.address(listingId), // Listing ID
-                tx.object("0x6"), // Clock object
+                tx.object(RENTAL_STORE_ID),
+                tx.pure.address(listingId),
+                tx.object("0x6"),
             ],
             typeArguments: [itemType],
         });
 
-        signAndExecute(
-            { transaction: tx },
-            {
-                onSuccess: (result) => {
-                    console.log("Withdrawn successfully:", result);
-                    toast.success("Item Withdrawn Successfully!");
-                },
-                onError: (error) => {
-                    console.error("Withdraw failed:", error);
-                    toast.error("Failed to withdraw item: " + error.message);
-                },
-            }
-        );
+        try {
+            await signAndExecute({ transaction: tx });
+            toast.success("Item Withdrawn Successfully!");
+            if (onSuccess) onSuccess();
+        } catch (error: any) {
+            console.error("Withdraw failed:", error);
+            toast.error("Failed to withdraw item: " + error.message);
+        }
     };
 
-    const terminateRental = (rentPassId: string, listingId: string) => {
+    const terminateRental = async (rentPassId: string, listingId: string, onSuccess?: () => void) => {
         if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
         const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
@@ -147,26 +122,45 @@ export function useRentFlow() {
         tx.moveCall({
             target: `${PACKAGE_ID}::${MARKET_MODULE}::terminate_rental`,
             arguments: [
-                tx.object(RENTAL_STORE_ID), // Marketplace Object
-                tx.object(rentPassId), // RentPass Object (passed by value, so it's consumed)
-                tx.object("0x6"), // Clock object
+                tx.object(RENTAL_STORE_ID),
+                tx.object(rentPassId),
+                tx.object("0x6"),
             ],
             typeArguments: [itemType],
         });
 
-        signAndExecute(
-            { transaction: tx },
-            {
-                onSuccess: (result) => {
-                    console.log("Terminated successfully:", result);
-                    toast.success("Rental Terminated Successfully! Refund processed.");
-                },
-                onError: (error) => {
-                    console.error("Termination failed:", error);
-                    toast.error("Failed to terminate rental: " + error.message);
-                },
-            }
-        );
+        try {
+            await signAndExecute({ transaction: tx });
+            toast.success("Rental Terminated Successfully! Refund processed.");
+            if (onSuccess) onSuccess();
+        } catch (error: any) {
+            console.error("Termination failed:", error);
+            toast.error("Failed to terminate rental: " + error.message);
+        }
+    };
+
+    const claimEarnings = async (listingId: string, onSuccess?: () => void) => {
+        if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
+        const tx = new Transaction();
+        const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
+
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MARKET_MODULE}::claim_earnings`,
+            arguments: [
+                tx.object(RENTAL_STORE_ID),
+                tx.pure.address(listingId),
+            ],
+            typeArguments: [itemType],
+        });
+
+        try {
+            await signAndExecute({ transaction: tx });
+            toast.success("Earnings Claimed Successfully!");
+            if (onSuccess) onSuccess();
+        } catch (error: any) {
+            console.error("Claim failed:", error);
+            toast.error("Failed to claim earnings: " + error.message);
+        }
     };
 
     return {
@@ -175,6 +169,7 @@ export function useRentFlow() {
         rentItem,
         withdrawItem,
         terminateRental,
+        claimEarnings,
         account,
     };
 }
