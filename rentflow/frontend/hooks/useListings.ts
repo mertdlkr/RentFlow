@@ -44,10 +44,9 @@ export function useListings() {
 
     // Parse the data
     const listings = listingObjects?.map((obj: any) => {
-        // The object is a Field<ID, Listing<GameItem>>
-        // content.fields.value is the Listing struct
-        const field = obj.data?.content?.fields;
-        const listing = field?.value?.fields;
+        // The object is the Listing object itself (Dynamic Object Field)
+        // content.fields IS the Listing struct
+        const listing = obj.data?.content?.fields;
 
         if (!listing) return null;
 
