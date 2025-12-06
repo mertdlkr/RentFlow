@@ -8,6 +8,7 @@ module rentflow::market {
     use sui::clock::{Self, Clock};
     use sui::balance::{Self, Balance};
     use std::option::{Self, Option};
+    use sui::dynamic_object_field as dof;
 
     /// Error codes
     const EInsufficientPayment: u64 = 0;
@@ -15,6 +16,7 @@ module rentflow::market {
     const ENotOwner: u64 = 2;
     const EItemIsRented: u64 = 3;
     const ENoItemInListing: u64 = 4;
+    const EListingNotFound: u64 = 5;
 
     /// A simple dummy NFT for testing
     struct GameItem has key, store {
@@ -24,14 +26,19 @@ module rentflow::market {
         url: vector<u8>,
     }
 
+    /// The Marketplace object (Store)
+    struct Marketplace has key, store {
+        id: UID,
+    }
+
     /// Wraps an item for rent
     struct Listing<T: key + store> has key, store {
         id: UID,
-        item: Option<T>, // Wrapped item. Option allows us to extract it.
+        item: Option<T>, 
         owner: address,
         price_per_day: u64,
-        rented_until: u64, // Timestamp in ms
-        balance: Balance<SUI>, // Accumulated rent fees
+        rented_until: u64, 
+        balance: Balance<SUI>, 
     }
 
     /// The object given to the renter
@@ -42,6 +49,14 @@ module rentflow::market {
     }
 
     // --- Functions ---
+
+    /// Create and share a new Marketplace
+    public fun create_marketplace(ctx: &mut TxContext) {
+        let marketplace = Marketplace {
+            id: object::new(ctx),
+        };
+        transfer::share_object(marketplace);
+    }
 
     /// Mint a dummy NFT for testing
     public fun mint_dummy_nft(
@@ -59,8 +74,9 @@ module rentflow::market {
         transfer::public_transfer(item, tx_context::sender(ctx));
     }
 
-    /// List an item for rent
+    /// List an item for rent (Adds to Marketplace as DOF)
     public fun list_item<T: key + store>(
+        marketplace: &mut Marketplace,
         item: T,
         price_per_day: u64,
         ctx: &mut TxContext
@@ -73,17 +89,24 @@ module rentflow::market {
             rented_until: 0,
             balance: balance::zero(),
         };
-        transfer::share_object(listing);
+        let listing_id = object::id(&listing);
+        // Add listing to marketplace using its ID as the key
+        dof::add(&mut marketplace.id, listing_id, listing);
     }
 
-    /// Rent an item
+    /// Rent an item (Access via Marketplace)
     public fun rent_item<T: key + store>(
-        listing: &mut Listing<T>,
+        marketplace: &mut Marketplace,
+        listing_id: ID,
         payment: Coin<SUI>,
         days: u64,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
+        // Borrow the listing from the marketplace
+        assert!(dof::exists_(&marketplace.id, listing_id), EListingNotFound);
+        let listing = dof::borrow_mut<ID, Listing<T>>(&mut marketplace.id, listing_id);
+
         let current_time = clock::timestamp_ms(clock);
         
         // Check if already rented
@@ -103,7 +126,7 @@ module rentflow::market {
         // Mint RentPass
         let rent_pass = RentPass {
             id: object::new(ctx),
-            listing_id: object::id(listing),
+            listing_id,
             valid_until: listing.rented_until,
         };
 
@@ -112,10 +135,14 @@ module rentflow::market {
 
     /// Withdraw the item (only owner, only if not rented)
     public fun withdraw_item<T: key + store>(
-        listing: &mut Listing<T>,
+        marketplace: &mut Marketplace,
+        listing_id: ID,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
+        assert!(dof::exists_(&marketplace.id, listing_id), EListingNotFound);
+        let listing = dof::borrow_mut<ID, Listing<T>>(&mut marketplace.id, listing_id);
+
         // Check owner
         assert!(tx_context::sender(ctx) == listing.owner, ENotOwner);
 
@@ -136,18 +163,20 @@ module rentflow::market {
             let earnings = coin::take(&mut listing.balance, amount, ctx);
             transfer::public_transfer(earnings, listing.owner);
         };
-    }
-    
-    /// Claim earnings without withdrawing item
-    public fun claim_earnings<T: key + store>(
-        listing: &mut Listing<T>,
-        ctx: &mut TxContext
-    ) {
-        assert!(tx_context::sender(ctx) == listing.owner, ENotOwner);
-        let amount = balance::value(&listing.balance);
-        if (amount > 0) {
-            let earnings = coin::take(&mut listing.balance, amount, ctx);
-            transfer::public_transfer(earnings, listing.owner);
-        };
+
+        // Remove listing from marketplace and destroy it
+        // Note: We can't easily destroy a Listing with Balance inside if it has dust, 
+        // but we emptied it above. 
+        // However, we can't destroy `Listing` struct because it doesn't have `drop`.
+        // So we must unpack it.
+        // But `Listing` has `id: UID` which we must delete.
+        // And `balance: Balance<SUI>` which we must destroy (it should be empty).
+        
+        // To properly remove, we need to take it out of DOF.
+        let listing_val = dof::remove<ID, Listing<T>>(&mut marketplace.id, listing_id);
+        let Listing { id, item, owner: _, price_per_day: _, rented_until: _, balance } = listing_val;
+        object::delete(id);
+        balance::destroy_zero(balance);
+        option::destroy_none(item);
     }
 }

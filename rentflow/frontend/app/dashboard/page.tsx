@@ -92,7 +92,7 @@ export default function DashboardPage() {
                                             Let's try to render the image if it's a valid URL string, otherwise placeholder.
                                         */}
                                         <Image
-                                            src={content?.url || "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop"}
+                                            src={(typeof content?.url === "string" && content.url.length > 0) ? content.url : "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop"}
                                             alt={content?.name || "Item"}
                                             fill
                                             className="object-cover"

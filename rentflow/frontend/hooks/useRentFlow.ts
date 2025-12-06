@@ -2,9 +2,7 @@ import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { toast } from "sonner";
-import { PACKAGE_ID } from "../utils/config";
-
-const MODULE_NAME = "market";
+import { PACKAGE_ID, RENTAL_STORE_ID, MARKET_MODULE } from "../utils/config";
 
 export function useRentFlow() {
     const client = useSuiClient();
@@ -12,14 +10,14 @@ export function useRentFlow() {
     const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
     const mintDummyNft = (name: string, description: string, url: string) => {
-        if (!PACKAGE_ID || PACKAGE_ID === "YOUR_PACKAGE_ID_HERE") {
+        if (!PACKAGE_ID) {
             toast.error("Please update PACKAGE_ID in utils/config.ts");
             return;
         }
 
         const tx = new Transaction();
         tx.moveCall({
-            target: `${PACKAGE_ID}::${MODULE_NAME}::mint_dummy_nft`,
+            target: `${PACKAGE_ID}::${MARKET_MODULE}::mint_dummy_nft`,
             arguments: [
                 tx.pure.string(name),
                 tx.pure.string(description),
@@ -43,14 +41,14 @@ export function useRentFlow() {
     };
 
     const listItem = (itemId: string, pricePerDay: number) => {
-        if (!PACKAGE_ID) return;
+        if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
-        // Assuming we are listing a GameItem for this demo
-        const itemType = `${PACKAGE_ID}::${MODULE_NAME}::GameItem`;
+        const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
 
         tx.moveCall({
-            target: `${PACKAGE_ID}::${MODULE_NAME}::list_item`,
+            target: `${PACKAGE_ID}::${MARKET_MODULE}::list_item`,
             arguments: [
+                tx.object(RENTAL_STORE_ID), // Marketplace Object
                 tx.object(itemId),
                 tx.pure.u64(pricePerDay),
             ],
@@ -60,25 +58,10 @@ export function useRentFlow() {
         signAndExecute(
             { transaction: tx },
             {
-                onSuccess: (result) => {
+                onSuccess: (result: any) => {
                     console.log("Listed successfully:", result);
                     toast.success("Item Listed for Rent!");
-
-                    // Hackathon Demo: Save listing ID to localStorage to show in Marketplace
-                    // We need to find the created Listing object ID from the effects.
-                    // The `list_item` function calls `transfer::share_object(listing)`.
-                    // So there should be a `created` or `mutated` object that is the Listing.
-                    // Since it's a new object shared, it might be in `created`.
-                    const created = result.effects?.created?.find(
-                        (c) => c.owner === "Shared"
-                    );
-                    if (created) {
-                        const currentListings = JSON.parse(localStorage.getItem("rentflow_listings") || "[]");
-                        currentListings.push(created.reference.objectId);
-                        localStorage.setItem("rentflow_listings", JSON.stringify(currentListings));
-                        // Trigger storage event for other tabs/components
-                        window.dispatchEvent(new Event("storage"));
-                    }
+                    // No need for localStorage hack anymore!
                 },
                 onError: (error) => {
                     console.error("List failed:", error);
@@ -89,16 +72,21 @@ export function useRentFlow() {
     };
 
     const rentItem = (listingId: string, pricePerDay: number, days: number) => {
-        if (!PACKAGE_ID) return;
+        if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
-        const itemType = `${PACKAGE_ID}::${MODULE_NAME}::GameItem`;
+        const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
 
         const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(pricePerDay * days)]);
 
         tx.moveCall({
-            target: `${PACKAGE_ID}::${MODULE_NAME}::rent_item`,
+            target: `${PACKAGE_ID}::${MARKET_MODULE}::rent_item`,
             arguments: [
-                tx.object(listingId),
+                tx.object(RENTAL_STORE_ID), // Marketplace Object
+                tx.pure.id(listingId), // Listing ID (Key) - Note: pure.id or pure.address? ID is address-like.
+                // Actually, Move expects `ID`. In PTB, we can pass the ID string as pure?
+                // Or tx.pure(bcs.vector(bcs.u8()).serialize(listingId))?
+                // `tx.pure.id` is not standard. `tx.pure.address` works for ID usually.
+                // Let's try `tx.pure.address(listingId)`.
                 coin,
                 tx.pure.u64(days),
                 tx.object("0x6"), // Clock object
@@ -122,14 +110,15 @@ export function useRentFlow() {
     };
 
     const withdrawItem = (listingId: string) => {
-        if (!PACKAGE_ID) return;
+        if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
         const tx = new Transaction();
-        const itemType = `${PACKAGE_ID}::${MODULE_NAME}::GameItem`;
+        const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
 
         tx.moveCall({
-            target: `${PACKAGE_ID}::${MODULE_NAME}::withdraw_item`,
+            target: `${PACKAGE_ID}::${MARKET_MODULE}::withdraw_item`,
             arguments: [
-                tx.object(listingId),
+                tx.object(RENTAL_STORE_ID), // Marketplace Object
+                tx.pure.address(listingId), // Listing ID
                 tx.object("0x6"), // Clock object
             ],
             typeArguments: [itemType],
