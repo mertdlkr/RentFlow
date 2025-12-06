@@ -15,12 +15,24 @@ import { parseMoveString } from "@/utils/format";
 import { useState } from "react";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Wallet, Key, DollarSign, ArrowUpRight } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function DashboardPage() {
-    const { listItem, mintDummyNft, withdrawItem, account } = useRentFlow();
-    const { listings, isLoading: isLoadingListings } = useListings();
+    const { listItem, mintDummyNft, withdrawItem, terminateRental, account } = useRentFlow();
+    const { listings, isLoading: isLoadingListings, refetch: refetchListings } = useListings();
     const [price, setPrice] = useState("");
     const [selectedItem, setSelectedItem] = useState<any>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     // 1. Fetch Owned Items (Wallet)
     const { data: ownedObjects, refetch: refetchWallet } = useSuiClientQuery(
@@ -61,18 +73,24 @@ export default function DashboardPage() {
     // 3. Filter My Listings
     const myListings = listings.filter((l: any) => l.owner === account?.address);
 
+    // 4. Calculate Total Earnings
+    const totalEarnings = myListings.reduce((acc: number, curr: any) => acc + (Number(curr.balance) || 0), 0);
+    const formattedEarnings = (totalEarnings / 1_000_000_000).toFixed(2);
+
     const handleList = () => {
         if (!account || !selectedItem) return;
         if (!price) {
             alert("Please enter a price");
             return;
         }
-        listItem(selectedItem.data.objectId, Number(price) * 1_000_000_000); // Convert to MIST? No, usually UI inputs SUI.
-        // Wait, the contract expects u64. If we input "1" SUI, we should send 1_000_000_000.
-        // Let's assume input is SUI.
+        listItem(selectedItem.data.objectId, Number(price) * 1_000_000_000);
         setSelectedItem(null);
         setPrice("");
-        setTimeout(() => { refetchWallet(); }, 2000);
+        setIsDialogOpen(false); // Close dialog
+        setTimeout(() => {
+            refetchWallet();
+            refetchListings();
+        }, 2000);
     };
 
     const handleMint = () => {
@@ -86,7 +104,18 @@ export default function DashboardPage() {
 
     const handleWithdraw = (listingId: string) => {
         withdrawItem(listingId);
-        // Optimistic update?
+        setTimeout(() => {
+            refetchWallet();
+            refetchListings();
+        }, 2000);
+    };
+
+    const handleTerminate = (rentPassId: string, listingId: string) => {
+        terminateRental(rentPassId, listingId);
+        setTimeout(() => {
+            refetchRentals();
+            refetchListings();
+        }, 2000);
     };
 
     return (
@@ -109,7 +138,7 @@ export default function DashboardPage() {
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">Total Earnings</p>
-                            <p className="text-2xl font-bold">0.00 SUI</p>
+                            <p className="text-2xl font-bold">{formattedEarnings} SUI</p>
                         </div>
                     </div>
                     <Button onClick={handleMint} variant="outline" className="h-auto py-4 px-6 border-primary/50 hover:bg-primary/10">
@@ -160,12 +189,15 @@ export default function DashboardPage() {
                                             </CardDescription>
                                         </CardHeader>
                                         <CardFooter className="p-0 pt-4 mt-auto">
-                                            <Dialog>
+                                            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                                                 <DialogTrigger asChild>
                                                     <Button
                                                         className="w-full"
                                                         variant="secondary"
-                                                        onClick={() => setSelectedItem(obj)}
+                                                        onClick={() => {
+                                                            setSelectedItem(obj);
+                                                            setIsDialogOpen(true);
+                                                        }}
                                                     >
                                                         List for Rent
                                                     </Button>
@@ -261,12 +293,8 @@ export default function DashboardPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {rentPasses?.data.map((obj: any) => {
                                 const content = obj.data?.content?.fields;
-                                // RentPass has listing_id and valid_until.
-                                // It doesn't have name/image directly. Ideally we fetch the listing details.
-                                // For hackathon, we can try to match with listings or show generic info.
-                                // Or we can assume we can fetch the listing object if we had time.
-                                // Let's show the valid_until and a placeholder.
                                 const validUntil = Number(content?.valid_until);
+                                const listingId = content?.listing_id;
 
                                 return (
                                     <GradientCard key={obj.data?.objectId} className="h-full flex flex-col border-secondary/20">
@@ -284,13 +312,38 @@ export default function DashboardPage() {
                                         <CardHeader className="p-0 mb-4">
                                             <CardTitle className="text-xl">Rented Access Pass</CardTitle>
                                             <CardDescription className="mt-2">
-                                                Listing ID: {String(content?.listing_id).slice(0, 8)}...
+                                                Listing ID: {String(listingId).slice(0, 8)}...
                                             </CardDescription>
                                         </CardHeader>
-                                        <CardFooter className="p-0 pt-4 mt-auto">
+                                        <CardFooter className="p-0 pt-4 mt-auto flex flex-col gap-2">
                                             <Button className="w-full" disabled>
                                                 Access Content (Coming Soon)
                                             </Button>
+
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button
+                                                        className="w-full"
+                                                        variant="destructive"
+                                                    >
+                                                        Terminate Rental (Refund)
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Terminate Rental Early?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Are you sure you want to terminate this rental? You will receive a partial refund based on the remaining time.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleTerminate(obj.data.objectId, listingId)}>
+                                                            Confirm Termination
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </CardFooter>
                                     </GradientCard>
                                 );

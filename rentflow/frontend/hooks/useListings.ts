@@ -52,6 +52,7 @@ export function useListings() {
             isRented: Number(listing.rented_until) > Date.now(),
             listingObjectId: listing.id.id,
             owner: listing.owner,
+            balance: listing.balance?.value || 0, // Extract balance
         };
     }).filter(Boolean) || [];
 

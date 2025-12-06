@@ -139,11 +139,42 @@ export function useRentFlow() {
         );
     };
 
+    const terminateRental = (rentPassId: string, listingId: string) => {
+        if (!PACKAGE_ID || !RENTAL_STORE_ID) return;
+        const tx = new Transaction();
+        const itemType = `${PACKAGE_ID}::${MARKET_MODULE}::GameItem`;
+
+        tx.moveCall({
+            target: `${PACKAGE_ID}::${MARKET_MODULE}::terminate_rental`,
+            arguments: [
+                tx.object(RENTAL_STORE_ID), // Marketplace Object
+                tx.object(rentPassId), // RentPass Object (passed by value, so it's consumed)
+                tx.object("0x6"), // Clock object
+            ],
+            typeArguments: [itemType],
+        });
+
+        signAndExecute(
+            { transaction: tx },
+            {
+                onSuccess: (result) => {
+                    console.log("Terminated successfully:", result);
+                    toast.success("Rental Terminated Successfully! Refund processed.");
+                },
+                onError: (error) => {
+                    console.error("Termination failed:", error);
+                    toast.error("Failed to terminate rental: " + error.message);
+                },
+            }
+        );
+    };
+
     return {
         mintDummyNft,
         listItem,
         rentItem,
         withdrawItem,
+        terminateRental,
         account,
     };
 }

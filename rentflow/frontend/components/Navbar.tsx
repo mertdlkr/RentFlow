@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ConnectButton } from "@mysten/dapp-kit";
+import { ConnectButton, useCurrentAccount } from "@mysten/dapp-kit";
 import { Button } from "@/components/ui/button";
+import { ADMIN_ADDRESS } from "@/utils/config";
 
 export function Navbar() {
+    const account = useCurrentAccount();
+    const isAdmin = account?.address === ADMIN_ADDRESS;
+
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-background/80 backdrop-blur-md">
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -22,6 +26,11 @@ export function Navbar() {
                     <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
                         Dashboard
                     </Link>
+                    {isAdmin && (
+                        <Link href="/admin" className="text-sm font-medium text-red-500 hover:text-red-400 transition-colors">
+                            Admin Panel
+                        </Link>
+                    )}
                     <ConnectButton />
                 </div>
             </div>

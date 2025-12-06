@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 
 export default function MarketplacePage() {
   const { rentItem, account } = useRentFlow();
-  const { listings, isLoading } = useListings();
+  const { listings, isLoading, refetch } = useListings();
   const [rentDays, setRentDays] = useState("1");
   const [selectedListing, setSelectedListing] = useState<any>(null);
 
@@ -20,6 +20,7 @@ export default function MarketplacePage() {
     if (!account || !selectedListing) return;
     rentItem(selectedListing.id, Number(selectedListing.price), Number(rentDays));
     setSelectedListing(null);
+    setTimeout(() => { refetch(); }, 2000);
   };
 
   if (isLoading) {
@@ -44,67 +45,77 @@ export default function MarketplacePage() {
       </h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {listings.map((listing: any) => (
-          <GradientCard key={listing.id} className="h-full flex flex-col">
-            <div className="relative h-48 w-full mb-4 rounded-lg overflow-hidden bg-muted">
-              <Image
-                src={(typeof listing.image === "string" && listing.image.length > 0) ? listing.image : "https://images.unsplash.com/photo-1614726365723-49cfae967b0b?q=80&w=2000&auto=format&fit=crop"}
-                alt={listing.name}
-                fill
-                className="object-cover"
-              />
-              {listing.isRented && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <span className="text-white font-bold text-xl border-2 border-white px-4 py-2 rounded-md transform -rotate-12">
-                    RENTED
-                  </span>
-                </div>
-              )}
-            </div>
-            <CardHeader className="p-0 mb-4">
-              <CardTitle className="text-xl">{listing.name}</CardTitle>
-              <CardDescription>
-                Price: {Number(listing.price) / 1_000_000_000} SUI / Day
-              </CardDescription>
-            </CardHeader>
-            <CardFooter className="p-0 pt-4 mt-auto">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    className="w-full"
-                    disabled={listing.isRented}
-                    onClick={() => setSelectedListing(listing)}
-                  >
-                    {listing.isRented ? "Unavailable" : "Rent Now"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Rent Item</DialogTitle>
-                    <DialogDescription>
-                      How many days do you want to rent this item for?
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="Days"
-                      value={rentDays}
-                      onChange={(e) => setRentDays(e.target.value)}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Total: {(Number(listing.price) * Number(rentDays)) / 1_000_000_000} SUI
-                    </p>
+        {listings.map((listing: any) => {
+          const isOwner = account?.address === listing.owner;
+
+          return (
+            <GradientCard key={listing.id} className="h-full flex flex-col">
+              <div className="relative h-48 w-full mb-4 rounded-lg overflow-hidden bg-muted">
+                <Image
+                  src={(typeof listing.image === "string" && listing.image.length > 0) ? listing.image : "https://images.unsplash.com/photo-1614726365723-49cfae967b0b?q=80&w=2000&auto=format&fit=crop"}
+                  alt={listing.name}
+                  fill
+                  className="object-cover"
+                />
+                {listing.isRented && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <span className="text-white font-bold text-xl border-2 border-white px-4 py-2 rounded-md transform -rotate-12">
+                      RENTED
+                    </span>
                   </div>
-                  <DialogFooter>
-                    <Button onClick={handleRent}>Confirm Rental</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardFooter>
-          </GradientCard>
-        ))}
+                )}
+              </div>
+              <CardHeader className="p-0 mb-4">
+                <CardTitle className="text-xl">{listing.name}</CardTitle>
+                <CardDescription>
+                  Price: {Number(listing.price) / 1_000_000_000} SUI / Day
+                </CardDescription>
+              </CardHeader>
+              <CardFooter className="p-0 pt-4 mt-auto">
+                {isOwner ? (
+                  <Button className="w-full" disabled variant="secondary">
+                    You Own This
+                  </Button>
+                ) : (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        className="w-full"
+                        disabled={listing.isRented}
+                        onClick={() => setSelectedListing(listing)}
+                      >
+                        {listing.isRented ? "Unavailable" : "Rent Now"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Rent Item</DialogTitle>
+                        <DialogDescription>
+                          How many days do you want to rent this item for?
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Days"
+                          value={rentDays}
+                          onChange={(e) => setRentDays(e.target.value)}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          Total: {(Number(listing.price) * Number(rentDays)) / 1_000_000_000} SUI
+                        </p>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={handleRent}>Confirm Rental</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </CardFooter>
+            </GradientCard>
+          )
+        })}
 
         {listings.length === 0 && (
           <div className="col-span-full text-center py-10 text-muted-foreground">

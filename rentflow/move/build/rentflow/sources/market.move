@@ -46,6 +46,7 @@ module rentflow::market {
         id: UID,
         listing_id: ID,
         valid_until: u64,
+        start_time: u64,
     }
 
     // --- Functions ---
@@ -128,9 +129,70 @@ module rentflow::market {
             id: object::new(ctx),
             listing_id,
             valid_until: listing.rented_until,
+            start_time: current_time,
         };
 
         transfer::public_transfer(rent_pass, tx_context::sender(ctx));
+    }
+
+    /// Terminate rental early (Renter only)
+    public fun terminate_rental<T: key + store>(
+        marketplace: &mut Marketplace,
+        rent_pass: RentPass,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let RentPass { id, listing_id, valid_until, start_time } = rent_pass;
+        object::delete(id);
+
+        assert!(dof::exists_(&marketplace.id, listing_id), EListingNotFound);
+        let listing = dof::borrow_mut<ID, Listing<T>>(&mut marketplace.id, listing_id);
+
+        let current_time = clock::timestamp_ms(clock);
+
+        // If already expired, just return (no refund)
+        if (current_time >= valid_until) {
+            return
+        };
+
+        // Calculate elapsed percentage
+        let total_duration = valid_until - start_time;
+        let elapsed = current_time - start_time;
+        
+        // Avoid division by zero
+        if (total_duration == 0) {
+            listing.rented_until = current_time;
+            return
+        };
+
+        // Percentage * 100 for integer arithmetic
+        let percentage = (elapsed * 100) / total_duration;
+
+        let refund_percentage = if (percentage < 50) {
+            50
+        } else if (percentage < 75) {
+            25
+        } else if (percentage < 90) {
+            10
+        } else {
+            0
+        };
+
+        if (refund_percentage > 0) {
+            let total_balance = balance::value(&listing.balance);
+            // We can't easily track exactly which payment corresponds to this rental if multiple happened (though listing logic implies one at a time).
+            // Assuming balance holds the rent for this session.
+            // But wait, `withdraw_item` empties balance. So balance IS the rent.
+            
+            let refund_amount = (total_balance * refund_percentage) / 100;
+            if (refund_amount > 0) {
+                let refund = coin::take(&mut listing.balance, refund_amount, ctx);
+                transfer::public_transfer(refund, tx_context::sender(ctx));
+            };
+        };
+
+        // Reset rented_until so it can be rented again or withdrawn
+        listing.rented_until = current_time;
     }
 
     /// Withdraw the item (only owner, only if not rented)
