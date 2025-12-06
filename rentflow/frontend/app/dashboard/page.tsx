@@ -105,6 +105,9 @@ export default function DashboardPage() {
 
         // Actually, let's just claim the first one for this hackathon scope if multiple exist.
         const target = listingsWithBalance[0];
+
+        if (!target) return;
+
         claimEarnings(target.id, () => {
             setTimeout(() => {
                 refetchListings();
