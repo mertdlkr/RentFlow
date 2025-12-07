@@ -1,3 +1,7 @@
+**Sunum Linki:** [Görüntüle](https://drive.google.com/file/d/1Y53aZQ2yc_QUYGNwAzUQUg8FwK-uduIa/view?usp=sharing)  
+**Live Linki:** [rentflow.mertdlkr.com](https://rentflow.mertdlkr.com)  
+**Github Repo:** [mertdlkr/RentFlow](https://github.com/mertdlkr/RentFlow)
+
 # 🌊 RentFlow: The Collateral-Free NFT Rental Protocol
 
 ![RentFlow Banner](https://img.shields.io/badge/Status-Live_on_Testnet-00F0FF?style=for-the-badge)
