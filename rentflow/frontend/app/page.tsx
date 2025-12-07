@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Rocket, ArrowUpRight, Unlock, Zap, TrendingUp } from "lucide-react";
+import Silk from "@/components/ui/Silk";
 
 export default function LandingPage() {
     return (
@@ -17,6 +18,15 @@ export default function LandingPage() {
                 {/* Decorative Glows */}
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]"></div>
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[120px]"></div>
+                <div className="absolute inset-0 opacity-50">
+                    <Silk
+                        speed={5}
+                        scale={1}
+                        color="#4DA2FF"
+                        noiseIntensity={1.5}
+                        rotation={0}
+                    />
+                </div>
             </div>
 
             {/* Main Content Area */}
